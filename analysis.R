@@ -8,7 +8,7 @@ wec <-
                      "Central America",
                      "Caribbean",
                      "South America")]
-wec <- wec[-which(wec %in% c("CAN", "USA"))]
+wec <- wec[-which(wec %in% c("CAN", "USA", "GRL"))]
 
 # Population data
 library(wbstats)
@@ -58,36 +58,50 @@ dat$region <-
 # Analysis
 library(ggplot2)
 library(scales)
-dat %>%
-  group_by(year) %>%
-  summarize(oda_pp = sum(oda, na.rm = T) / sum(people, na.rm = T)) %>%
-  ggplot() +
-  geom_line(aes(x = year, y = oda_pp*1000)) + 
-  scale_y_continuous(labels = scales::dollar) + 
+
+dat_regional <-
+  dat %>%
+  dplyr::filter(region_plus %in% c("Central America", "South America")) %>%
+  dplyr::group_by(year, region) %>%
+  dplyr::summarize(oda_pp = sum(oda) / sum(population)) 
+
+dat_regional <-
+  dat_regional %>%
+  dplyr::group_by(region) %>%
+  dplyr::mutate(oda_pp_from_baseline = 
+                  (oda_pp - oda_pp[year == 1961]) / )
+
+ggsave(file = "us_oda_central_south_america.png", width = 10,
+ggplot(dat_regional) +
+  geom_line(aes(x = year, y = oda_pp*1000, colour=region)) + 
+  scale_y_continuous(labels = scales::dollar_format(accuracy = .001)) + 
+  scale_color_brewer(palette='Set1') +
   theme_bw() +
-  labs(x = "ODA per person (World)", y=NULL, 
-       caption = "Calculated by dividing the total net official development assistant (ODA)\nfrom the US by the total number of people living in recipient countries.")
-
-
-
-dat %>%
-  filter(recipient_region %in% c("Central America","South America")) %>% 
-  ggplot() +
-  geom_point(aes(x = year, y = oda_pp_diff*1000, colour = recipient_region)) + 
-  scale_y_continuous(labels = scales::dollar) + 
-  theme_bw() +
+  annotate("text", x = 2001, y = 0.020, label = "Nicaraguan presidential\nelection\n(2001)\n↓",
+           size = 3.6) +
+  annotate("text", x = 1966, y = 0.001, label = "← Cuban revolution (1959)",
+           size = 3.6) +
+  annotate("text", x = 1990, y = 0.0245, label = "Reagan doctrine",
+           size = 3.6) +
+  annotate("rect", xmin=1981, xmax=1998, ymin=0, ymax=Inf, fill = 'red', alpha = .1) +
   labs(x = "ODA per person", y=NULL, 
-       caption = "Calculated by dividing the total net official development assistant (ODA)\nfrom the US by the total number of people living in recipient countries.")
+       caption = "Calculated by dividing net official development assistant (ODA) from the US by total number of people living in the recipient regions\n@FrBailo | Source: World Bank, OECD | To replicate: git.io/fhwtW")
+)
 
-
-require(dplyr)
-dat %>%
-  group_by(year) %>%
-  mutate(oda_tot_year = sum(oda)) %>%
-  group_by(year, recipient_region) %>%
-  mutate(oda_region_perc = sum(oda, na.rm = T) / oda_tot_year) %>%
-  
-  ggplot() +
-  geom_line(aes(x=as.numeric(year), y=oda_region_perc, colour=recipient_region))
-  
-  
+ggsave(file = "us_oda_central_south_america_perc.png", width = 10,
+dat_regional %>% filter(year > 1960) %>%
+ggplot() +
+  geom_line(aes(x = year, y=oda_pp_from_baseline, colour=region)) + 
+  scale_y_continuous(labels = percent, limits = c(0,1.4)) + 
+  scale_color_brewer(palette='Set1') +
+  theme_bw() +
+  annotate("text", x = 2001, y = 1.15, label = "Nicaraguan presidential\nelection\n(2001)\n↓",
+           size = 3.6) +
+  # annotate("text", x = 1966, y = 0.001, label = "← Cuban revolution (1959)",
+  #          size = 3.6) +
+  annotate("text", x = 1990, y =1.35, label = "Reagan doctrine",
+           size = 3.6) +
+  annotate("rect", xmin=1981, xmax=1998, ymin=0, ymax=Inf, fill = 'red', alpha = .1) +
+  labs(x = "ODA per person (as % of 1961 values)", y=NULL, 
+       caption = "Calculated by dividing net official development assistant (ODA) from the US by total number of people living in the recipient regions\n@FrBailo | Source: World Bank, OECD | To replicate: git.io/fhwtW")
+)
